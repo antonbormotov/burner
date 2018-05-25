@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from Collector import Collector
+import ConfigParser
 import elasticsearch
+from Collector import Collector
 from elasticsearch import Elasticsearch
 
 
@@ -80,7 +81,10 @@ class Updater:
 
 if __name__ == "__main__":
 
-    collector = Collector.Collector()
+    config = ConfigParser.RawConfigParser()
+    config.read('config.cfg')
+
+    collector = Collector.Collector(config)
     updater = Updater()
 
     updater.store_users_expenses(

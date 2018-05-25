@@ -27,9 +27,21 @@ class Collector:
         'c4.8xlarge': 1.848
     }
     cloudformation_client = None
+    ec2_client = None
 
-    def __init__(self):
-        self.cloudformation_client = boto3.client('cloudformation')
+    def __init__(self, config):
+        self.cloudformation_client = boto3.client(
+            service_name='cloudformation',
+            aws_access_key_id=config.get('boto', 'AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=config.get('boto', 'AWS_SECRET_ACCESS_KEY'),
+            region_name=config.get('boto', 'AWS_DEFAULT_REGION')
+        )
+        self.ec2_client = boto3.client(
+            service_name='ec2',
+            aws_access_key_id=config.get('boto', 'AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=config.get('boto', 'AWS_SECRET_ACCESS_KEY'),
+            region_name=config.get('boto', 'AWS_DEFAULT_REGION')
+        )
 
     def is_stack_countable(self, state):
         if state in [
@@ -56,8 +68,7 @@ class Collector:
                 return resource['PhysicalResourceId']
 
     def retrieve_instance_size(self, instance_id):
-        client = boto3.client('ec2')
-        response = client.describe_instances(
+        response = self.ec2_client.describe_instances(
             InstanceIds=[
                 instance_id,
             ]
@@ -99,6 +110,6 @@ class Collector:
             result.append({
                 'user': user,
                 'total_spent': self.get_instance_price(instance_type)
-            }
+                }
             )
         return result
