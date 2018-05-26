@@ -10,10 +10,10 @@ from elasticsearch import Elasticsearch
 class Updater:
     es_client = None
 
-    def __init__(self):
+    def __init__(self, config):
         self.es_client = Elasticsearch(
-            ['es-qa.ipricegroup.com'],
-            http_auth=('iprice', 'fGcXoXcBtYaWfUpE'),
+            [config.get('elasticsearch', 'ES_HOST')],
+            http_auth=(config.get('elasticsearch', 'ES_USERNAME'), config.get('elasticsearch', 'ES_PASSWORD')),
             scheme="https",
             port=443,
         )
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     config.read('config.cfg')
 
     collector = Collector.Collector(config)
-    updater = Updater()
+    updater = Updater(config)
 
     updater.store_users_expenses(
         collector.get_users_expenses()
