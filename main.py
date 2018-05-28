@@ -46,10 +46,11 @@ class Updater:
                         }
                     },
                     'dynamic': 'strict'
-                }
+                },
+                request_timeout=300
             )
-        except elasticsearch.exceptions.RequestError:
-            self.logger.info('Elasticsearch index exists')
+        except (elasticsearch.exceptions.RequestError, elasticsearch.exceptions.ConnectionTimeout) as e:
+            self.logger.info('Elasticsearch expection: {}'.format(e))
 
     def store_users_expenses(self, users):
         self.logger.info('Store collected data: {}'.format(users))
@@ -64,7 +65,8 @@ class Updater:
                             'user': user.get('user')
                         }
                     }
-                }
+                },
+                request_timeout=300
             )
             doc_id = [d['_id'] for d in res['hits']['hits']]
             doc_total_spent = [d['_source']['total_spent'] for d in res['hits']['hits']]
@@ -75,7 +77,8 @@ class Updater:
                     index='burner',
                     doc_type='user',
                     body=user,
-                    refresh=True
+                    refresh=True,
+                    request_timeout=300
                 )
             else:
                 self.logger.info('Updating user {}'.format(user.get('user')))
@@ -84,7 +87,8 @@ class Updater:
                     doc_type='user',
                     id=doc_id[0],
                     body={'doc': {"total_spent": user.get('total_spent') + doc_total_spent[0]}},
-                    refresh=True
+                    refresh=True,
+                    request_timeout=300
                 )
             self.logger.info('Elasticsearch response {}'.format(res))
 
@@ -102,6 +106,7 @@ if __name__ == "__main__":
     handler.setLevel(logging.INFO)
     handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
     app_logger.addHandler(handler)
+    app_logger.info('Stared')
 
     config = ConfigParser.RawConfigParser()
     config.read('config.cfg')
