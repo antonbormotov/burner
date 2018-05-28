@@ -28,8 +28,12 @@ class Collector:
     }
     cloudformation_client = None
     ec2_client = None
+    logger = None
+    config = None
 
-    def __init__(self, config):
+    def __init__(self, config, logger):
+        self.logger = logger
+        self.config = config
         self.cloudformation_client = boto3.client(
             service_name='cloudformation',
             aws_access_key_id=config.get('boto', 'AWS_ACCESS_KEY_ID'),
@@ -97,6 +101,8 @@ class Collector:
                     user = output['OutputValue']
                     break
             ret[stack['StackName']] = {user: instance_type}
+        if not ret:
+            self.logger.info('No running stacks found in {} region'.format(self.config.get('boto','AWS_DEFAULT_REGION')))
         return ret
 
     def get_users_expenses(self):
@@ -110,6 +116,6 @@ class Collector:
             result.append({
                 'user': user,
                 'total_spent': self.get_instance_price(instance_type)
-                }
+            }
             )
         return result

@@ -3,14 +3,18 @@
 
 import ConfigParser
 import elasticsearch
+import logging
+import datetime
 from Collector import Collector
 from elasticsearch import Elasticsearch
 
 
 class Updater:
     es_client = None
+    logger = None
 
-    def __init__(self, config):
+    def __init__(self, config, logger):
+        self.logger = logger
         self.es_client = Elasticsearch(
             [config.get('elasticsearch', 'ES_HOST')],
             http_auth=(config.get('elasticsearch', 'ES_USERNAME'), config.get('elasticsearch', 'ES_PASSWORD')),
@@ -43,6 +47,7 @@ class Updater:
             print "index already exists"
 
     def store_users_expenses(self, users):
+        self.logger.info('Store collected data: {}'.format(users))
         for user in users:
             res = self.es_client.search(
                 index='burner',
@@ -81,12 +86,24 @@ class Updater:
 
 if __name__ == "__main__":
 
+    #  Add logger for application
+    app_logger = logging.getLogger(__name__)
+    app_logger.setLevel(logging.INFO)
+
+    handler = logging.FileHandler(
+        filename='burner_%s.log' % datetime.datetime.now().strftime('%Y%m%d'),
+        mode='a'
+    )
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
+    app_logger.addHandler(handler)
+
     config = ConfigParser.RawConfigParser()
     config.read('config.cfg')
 
-    collector = Collector.Collector(config)
-    updater = Updater(config)
+    collector = Collector.Collector(config, app_logger)
 
+    updater = Updater(config, app_logger)
     updater.store_users_expenses(
         collector.get_users_expenses()
     )
