@@ -102,7 +102,9 @@ class Collector:
                     break
             ret[stack['StackName']] = {user: instance_type}
         if not ret:
-            self.logger.info('No running stacks found in {} region'.format(self.config.get('boto','AWS_DEFAULT_REGION')))
+            self.logger.info(
+                'No running stacks found in {} region'.format(self.config.get('boto', 'AWS_DEFAULT_REGION'))
+            )
         return ret
 
     def get_users_expenses(self):
@@ -110,12 +112,9 @@ class Collector:
         for stack, data in self.retrieve_qa_stacks().items():
             user = data.keys()[0]
             instance_type = data.values()[0]
-            print("user: {}, value {}, price: {}".format(user, instance_type, self.get_instance_price(instance_type)))
-            # if user not in result:
-            #     result[user] = 0
             result.append({
                 'user': user,
                 'total_spent': self.get_instance_price(instance_type)
-            }
+                }
             )
         return result

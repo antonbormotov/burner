@@ -6,7 +6,7 @@ import elasticsearch
 import logging
 import datetime
 from Collector import Collector
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, RequestsHttpConnection
 
 
 class Updater:
@@ -15,12 +15,17 @@ class Updater:
 
     def __init__(self, config, logger):
         self.logger = logger
-        self.es_client = Elasticsearch(
-            [config.get('elasticsearch', 'ES_HOST')],
-            http_auth=(config.get('elasticsearch', 'ES_USERNAME'), config.get('elasticsearch', 'ES_PASSWORD')),
-            scheme="https",
-            port=443,
-        )
+        params = {
+            'hosts': "https://{}:{}@{}".format(
+                config.get('elasticsearch', 'ES_USERNAME'),
+                config.get('elasticsearch', 'ES_PASSWORD'),
+                config.get('elasticsearch', 'ES_HOST')
+            ),
+            'connection_class': RequestsHttpConnection,
+            'use_ssl': True,
+            'verify_certs': True
+        }
+        self.es_client = Elasticsearch(**params)
         self.es_create_index()
 
     def es_create_index(self):
@@ -44,7 +49,7 @@ class Updater:
                 }
             )
         except elasticsearch.exceptions.RequestError:
-            print "index already exists"
+            self.logger.info('Elasticsearch index exists')
 
     def store_users_expenses(self, users):
         self.logger.info('Store collected data: {}'.format(users))
@@ -65,7 +70,7 @@ class Updater:
             doc_total_spent = [d['_source']['total_spent'] for d in res['hits']['hits']]
 
             if not res['hits']['hits']:
-                print("Creating user {}".format(user.get('user')))
+                self.logger.info('Creating user {}'.format(user.get('user')))
                 res = self.es_client.index(
                     index='burner',
                     doc_type='user',
@@ -73,7 +78,7 @@ class Updater:
                     refresh=True
                 )
             else:
-                print("Updating user {}, stored value {}".format(user.get('user'), doc_total_spent))
+                self.logger.info('Updating user {}'.format(user.get('user')))
                 res = self.es_client.update(
                     index='burner',
                     doc_type='user',
@@ -81,7 +86,7 @@ class Updater:
                     body={'doc': {"total_spent": user.get('total_spent') + doc_total_spent[0]}},
                     refresh=True
                 )
-            print(res['result'])
+            self.logger.info('Elasticsearch response {}'.format(res))
 
 
 if __name__ == "__main__":
@@ -107,3 +112,6 @@ if __name__ == "__main__":
     updater.store_users_expenses(
         collector.get_users_expenses()
     )
+
+    app_logger.info('Completed')
+    app_logger.info('')
