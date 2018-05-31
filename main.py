@@ -32,7 +32,7 @@ class Updater:
     def es_create_index(self):
         try:
             self.es_client.indices.create(
-                index='burner',
+                index='burner_w{}'.format(datetime.datetime.now().isocalendar()[1]),
                 body={
                     "settings": {
                         "number_of_shards": 1,
@@ -58,44 +58,45 @@ class Updater:
             sys.exit()
 
     def store_users_expenses(self, users):
-        self.logger.info('Store collected data: {}'.format(users))
         for user in users:
-            res = self.es_client.search(
-                index='burner',
-                doc_type='user',
-                body={
-                    '_source': ['_id', 'total_spent'],
-                    'query': {
-                        'match': {
-                            'user': user.get('user')
+            try:
+                res = self.es_client.search(
+                    index='burner_w{}'.format(datetime.datetime.now().isocalendar()[1]),
+                    doc_type='user',
+                    body={
+                        '_source': ['_id', 'total_spent'],
+                        'query': {
+                            'match': {
+                                'user': user.get('user')
+                            }
                         }
-                    }
-                },
-                request_timeout=300
-            )
-            doc_id = [d['_id'] for d in res['hits']['hits']]
-            doc_total_spent = [d['_source']['total_spent'] for d in res['hits']['hits']]
+                    },
+                    request_timeout=300
+                )
+                doc_id = [d['_id'] for d in res['hits']['hits']]
+                doc_total_spent = [d['_source']['total_spent'] for d in res['hits']['hits']]
 
-            if not res['hits']['hits']:
-                self.logger.info('Creating user {}'.format(user.get('user')))
-                res = self.es_client.index(
-                    index='burner',
-                    doc_type='user',
-                    body=user,
-                    refresh=True,
-                    request_timeout=300
-                )
-            else:
-                self.logger.info('Updating user {}'.format(user.get('user')))
-                res = self.es_client.update(
-                    index='burner',
-                    doc_type='user',
-                    id=doc_id[0],
-                    body={'doc': {"total_spent": user.get('total_spent') + doc_total_spent[0]}},
-                    refresh=True,
-                    request_timeout=300
-                )
-            self.logger.info('Elasticsearch response {}'.format(res))
+                if not res['hits']['hits']:
+                    self.logger.info('Creating user {}'.format(user.get('user')))
+                    self.es_client.index(
+                        index='burner_w{}'.format(datetime.datetime.now().isocalendar()[1]),
+                        doc_type='user',
+                        body=user,
+                        refresh=True,
+                        request_timeout=300
+                    )
+                else:
+                    self.logger.info('Updating user {}'.format(user.get('user')))
+                    self.es_client.update(
+                        index='burner_w{}'.format(datetime.datetime.now().isocalendar()[1]),
+                        doc_type='user',
+                        id=doc_id[0],
+                        body={'doc': {"total_spent": user.get('total_spent') + doc_total_spent[0]}},
+                        refresh=True,
+                        request_timeout=300
+                    )
+            except elasticsearch.exceptions.ElasticsearchException as e:
+                self.logger.info('Elasticsearch exception: \n {}'.format(e))
 
 
 if __name__ == "__main__":
@@ -112,7 +113,8 @@ if __name__ == "__main__":
         mode='a'
     )
     handler.setLevel(logging.INFO)
-    handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%Y-%m-%d %H:%M"))
     app_logger.addHandler(handler)
     es_logger.addHandler(handler)
 
