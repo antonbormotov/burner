@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import sys
 import ConfigParser
 import elasticsearch
 import logging
@@ -49,8 +50,12 @@ class Updater:
                 },
                 request_timeout=300
             )
-        except (elasticsearch.exceptions.RequestError, elasticsearch.exceptions.ConnectionTimeout) as e:
-            self.logger.info('Elasticsearch expection: {}'.format(e))
+        except elasticsearch.exceptions.RequestError as e:
+            self.logger.info('Elasticsearch exception: \n {}'.format(e))
+        except elasticsearch.exceptions.ElasticsearchException as e:
+            self.logger.info('Elasticsearch exception: \n {}'.format(e))
+            self.logger.info('Exit')
+            sys.exit()
 
     def store_users_expenses(self, users):
         self.logger.info('Store collected data: {}'.format(users))
@@ -95,9 +100,12 @@ class Updater:
 
 if __name__ == "__main__":
 
-    #  Add logger for application
+    #  Configure logging
     app_logger = logging.getLogger(__name__)
     app_logger.setLevel(logging.INFO)
+
+    es_logger = logging.getLogger('elasticsearch.trace')
+    es_logger.setLevel(logging.WARNING)
 
     handler = logging.FileHandler(
         filename='burner_%s.log' % datetime.datetime.now().strftime('%Y%m%d'),
@@ -106,8 +114,11 @@ if __name__ == "__main__":
     handler.setLevel(logging.INFO)
     handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
     app_logger.addHandler(handler)
-    app_logger.info('Stared')
+    es_logger.addHandler(handler)
 
+    app_logger.info('Started')
+
+    #  Read configuration file
     config = ConfigParser.RawConfigParser()
     config.read('config.cfg')
 
@@ -118,5 +129,4 @@ if __name__ == "__main__":
         collector.get_users_expenses()
     )
 
-    app_logger.info('Completed')
-    app_logger.info('')
+    app_logger.info('Completed\n')
