@@ -72,6 +72,11 @@ class Collector:
                 return resource['PhysicalResourceId']
 
     def retrieve_instance_size(self, instance_id):
+        """
+
+        :param instance_id: instance id
+        :return: String or False
+        """
         response = self.ec2_client.describe_instances(
             InstanceIds=[
                 instance_id,
@@ -79,6 +84,8 @@ class Collector:
         ).get(
             'Reservations', []
         )
+        if not response:
+            return False
         return response[0]['Instances'][0]['InstanceType']
 
     def retrieve_qa_stacks(self):
@@ -91,9 +98,13 @@ class Collector:
             resources = self.cloudformation_client.describe_stack_resources(
                 StackName=stack['StackName']
             )
-            instance_type = self.retrieve_instance_size(
-                self.retrieve_instance_id(resources['StackResources'])
-            )
+            instance_id = self.retrieve_instance_id(resources['StackResources'])
+            instance_type = self.retrieve_instance_size(instance_id)
+            if not instance_type:
+                self.logger.info(
+                    'Skipping, stack {} does not have alive instance with id {}'.format(stack['StackName'],instance_id)
+                )
+                continue
 
             user = 'Undefined'
             for output in stack['Outputs']:
