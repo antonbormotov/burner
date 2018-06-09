@@ -1,4 +1,6 @@
 import boto3
+import calendar
+import datetime
 
 
 class Collector:
@@ -26,6 +28,9 @@ class Collector:
         'c4.4xlarge': 0.924,
         'c4.8xlarge': 1.848
     }
+    ebs_pricing = {
+        'gp2': 0.12
+    }
     cloudformation_client = None
     ec2_client = None
     logger = None
@@ -49,22 +54,26 @@ class Collector:
 
     def is_stack_countable(self, state):
         if state in [
-                'CREATE_IN_PROGRESS',
-                'CREATE_COMPLETE',
-                'ROLLBACK_IN_PROGRESS',
-                'ROLLBACK_COMPLETE',
-                'UPDATE_IN_PROGRESS',
-                'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS',
-                'UPDATE_COMPLETE',
-                'UPDATE_ROLLBACK_IN_PROGRESS',
-                'UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS',
-                'UPDATE_ROLLBACK_COMPLETE',
-                'REVIEW_IN_PROGRESS']:
+            'CREATE_COMPLETE',
+            'ROLLBACK_IN_PROGRESS',
+            'ROLLBACK_COMPLETE',
+            'UPDATE_IN_PROGRESS',
+            'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS',
+            'UPDATE_COMPLETE',
+            'UPDATE_ROLLBACK_IN_PROGRESS',
+            'UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS',
+            'UPDATE_ROLLBACK_COMPLETE',
+            'REVIEW_IN_PROGRESS']:
             return True
         return False
 
     def get_instance_price(self, instance_type):
         return self.ec2_pricing[instance_type]
+
+    def get_ebs_price(self, ebs_type, size):
+        date = datetime.datetime.now()
+        days_in_month = calendar.monthrange(date.year, date.month)[1]
+        return self.ebs_pricing[ebs_type] * size/(24*days_in_month)
 
     def retrieve_instance_id(self, list_of_resources):
         for resource in list_of_resources:
@@ -88,6 +97,25 @@ class Collector:
             return False
         return response[0]['Instances'][0]['InstanceType']
 
+    def retrieve_instance_disks(self, instance_id):
+        volumes = {}
+        response = self.ec2_client.describe_volumes(
+            Filters=[
+                {
+                    'Name': 'attachment.instance-id',
+                    'Values': [instance_id],
+                }
+            ]
+        )
+        if not response:
+            return False
+        for volume in response['Volumes']:
+            if volume['VolumeType'] in volumes:
+                volumes[volume['VolumeType']] = volumes[volume['VolumeType']] + volume['Size']
+            else:
+                volumes[volume['VolumeType']] = volume['Size']
+        return volumes
+
     def retrieve_qa_stacks(self):
         ret = {}
         response = self.cloudformation_client.describe_stacks()
@@ -100,6 +128,7 @@ class Collector:
             )
             instance_id = self.retrieve_instance_id(resources['StackResources'])
             instance_type = self.retrieve_instance_size(instance_id)
+            instance_disks = self.retrieve_instance_disks(instance_id)
             if not instance_type:
                 self.logger.info(
                     'Skipping, stack {} does not have alive instance with id {}'.format(stack['StackName'],instance_id)
@@ -111,7 +140,12 @@ class Collector:
                 if output['OutputKey'] == 'triggeredBy' and output['OutputValue'] != '':
                     user = output['OutputValue']
                     break
-            ret[stack['StackName']] = {user: instance_type}
+            ret[stack['StackName']] = {
+                user: [
+                    instance_type,
+                    instance_disks
+                ]
+            }
         if not ret:
             self.logger.info(
                 'No running stacks found in {} region'.format(self.config.get('boto', 'AWS_DEFAULT_REGION'))
@@ -122,10 +156,17 @@ class Collector:
         result = []
         for stack, data in self.retrieve_qa_stacks().items():
             user = data.keys()[0]
-            instance_type = data.values()[0]
+            instance_type = data.values()[0][0]
+
+            total_ebs = 0
+            instance_disks = data.values()[0][1]
+            for disk_type, disk_size in instance_disks.iteritems():
+                total_ebs = total_ebs + self.get_ebs_price(disk_type, disk_size)
+
             result.append({
                 'user': user,
-                'total_spent': self.get_instance_price(instance_type)
+                'total_ec2_spent': self.get_instance_price(instance_type),
+                'total_ebs_spent': total_ebs
                 }
             )
         return result

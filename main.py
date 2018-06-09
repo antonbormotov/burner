@@ -42,7 +42,8 @@ class Updater:
                         'user': {
                             'properties': {
                                 'user': {'index': 'not_analyzed', 'type': 'keyword'},
-                                'total_spent': {'index': 'not_analyzed', "type": "float"}
+                                'total_ec2_spent': {'index': 'not_analyzed', "type": "float"},
+                                'total_ebs_spent': {'index': 'not_analyzed', "type": "float"}
                             }
                         }
                     },
@@ -64,7 +65,7 @@ class Updater:
                     index='burner_w{}'.format(datetime.datetime.now().isocalendar()[1]),
                     doc_type='user',
                     body={
-                        '_source': ['_id', 'total_spent'],
+                        '_source': ['_id', 'total_ec2_spent', 'total_ebs_spent'],
                         'query': {
                             'match': {
                                 'user': user.get('user')
@@ -74,7 +75,8 @@ class Updater:
                     request_timeout=300
                 )
                 doc_id = [d['_id'] for d in res['hits']['hits']]
-                doc_total_spent = [d['_source']['total_spent'] for d in res['hits']['hits']]
+                total_ec2_spent = [d['_source']['total_ec2_spent'] for d in res['hits']['hits']]
+                total_ebs_spent = [d['_source']['total_ebs_spent'] for d in res['hits']['hits']]
 
                 if not res['hits']['hits']:
                     self.logger.info('Creating user {}'.format(user.get('user')))
@@ -91,7 +93,12 @@ class Updater:
                         index='burner_w{}'.format(datetime.datetime.now().isocalendar()[1]),
                         doc_type='user',
                         id=doc_id[0],
-                        body={'doc': {"total_spent": user.get('total_spent') + doc_total_spent[0]}},
+                        body={
+                            'doc': {
+                                'total_ec2_spent': user.get('total_ec2_spent') + total_ec2_spent[0],
+                                'total_ebs_spent': user.get('total_ebs_spent') + total_ebs_spent[0]
+                            }
+                        },
                         refresh=True,
                         request_timeout=300
                     )
