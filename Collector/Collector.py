@@ -26,7 +26,8 @@ class Collector:
         'c4.xlarge': 0.231,
         'c4.2xlarge': 0.462,
         'c4.4xlarge': 0.924,
-        'c4.8xlarge': 1.848
+        'c4.8xlarge': 1.848,
+        'not_countable': 0
     }
     ebs_pricing = {
         'gp2': 0.12
@@ -66,6 +67,18 @@ class Collector:
             'REVIEW_IN_PROGRESS']:
             return True
         return False
+
+    def is_instance_countable(self, instance_id):
+        response = self.ec2_client.describe_instances(
+            InstanceIds=[
+                instance_id,
+            ]
+        ).get(
+            'Reservations', []
+        )
+        if response[0]['Instances'][0]['State']['Name'] not in ['running', 'pending', 'rebooting']:
+            return False
+        return True
 
     def get_instance_price(self, instance_type):
         return self.ec2_pricing[instance_type]
@@ -134,6 +147,9 @@ class Collector:
                     'Skipping, stack {} does not have alive instance with id {}'.format(stack['StackName'],instance_id)
                 )
                 continue
+
+            if not self.is_instance_countable(instance_id):
+                instance_type = 'not_countable'
 
             user = 'Undefined'
             for output in stack['Outputs']:
