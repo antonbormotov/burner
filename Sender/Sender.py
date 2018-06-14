@@ -42,7 +42,7 @@ class Sender:
             ]
         )
         msg['From'] = self.config.get('email', 'MAILBOX')
-        msg['To'] = 'qqwrst@gmail.com'
+        msg['To'] = self.config.get('email', 'TO')
         msg['Subject'] = self.build_subject()
 
         self.smtp_server.starttls()
@@ -92,14 +92,22 @@ class Sender:
             ]
         )
         i = 0
+        s = 0
         for hit in res['hits']['hits']:
             i = i + 1
+            s = s + round(hit['sort'][0], 2)
             data.append(
                 [
                     "{:02d} User: {}".format(i, hit['_source']['user']),
                     "Spent: {:05.2f}".format(round(hit['sort'][0], 2))
                 ]
             )
+        data.append(
+            [
+                "Total:",
+                "{:05.2f}".format(s)
+            ]
+        )
         text = text.format(
             table=tabulate(data, headers="firstrow", tablefmt="grid")
         )
