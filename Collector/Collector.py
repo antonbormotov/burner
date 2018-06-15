@@ -4,6 +4,7 @@
 import boto3
 import calendar
 import datetime
+from botocore.exceptions import ClientError
 
 
 class Collector:
@@ -102,27 +103,35 @@ class Collector:
         :param instance_id: instance id
         :return: String or False
         """
-        response = self.ec2_client.describe_instances(
-            InstanceIds=[
-                instance_id,
-            ]
-        ).get(
-            'Reservations', []
-        )
+        response = False
+        try:
+            response = self.ec2_client.describe_instances(
+                InstanceIds=[
+                    instance_id,
+                ]
+            ).get(
+                'Reservations', []
+            )
+        except ClientError as e:
+            self.logger.info('Boto exception: \n {}'.format(e))
         if not response:
             return False
         return response[0]['Instances'][0]['InstanceType']
 
     def retrieve_instance_disks(self, instance_id):
         volumes = {}
-        response = self.ec2_client.describe_volumes(
-            Filters=[
-                {
-                    'Name': 'attachment.instance-id',
-                    'Values': [instance_id],
-                }
-            ]
-        )
+        response = False
+        try:
+            response = self.ec2_client.describe_volumes(
+                Filters=[
+                    {
+                        'Name': 'attachment.instance-id',
+                        'Values': [instance_id],
+                    }
+                ]
+            )
+        except ClientError as e:
+            self.logger.info('Boto exception: \n {}'.format(e))
         if not response:
             return False
         for volume in response['Volumes']:
@@ -181,7 +190,10 @@ class Collector:
             instance_disks = data.values()[0][1]
             for disk_type, disk_size in instance_disks.iteritems():
                 total_ebs = total_ebs + self.get_ebs_price(disk_type, disk_size)
-
+            if user == 'Undefined':
+                self.logger.info(
+                    'user undefined ec2 cost {}, type {}'.format(self.get_instance_price(instance_type),instance_type)
+                )
             result.append({
                 'user': user,
                 'total_ec2_spent': self.get_instance_price(instance_type),
