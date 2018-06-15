@@ -68,7 +68,8 @@ class Collector:
             'UPDATE_ROLLBACK_IN_PROGRESS',
             'UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS',
             'UPDATE_ROLLBACK_COMPLETE',
-            'REVIEW_IN_PROGRESS']:
+            'REVIEW_IN_PROGRESS'
+        ]:
             return True
         return False
 
