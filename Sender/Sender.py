@@ -5,6 +5,8 @@ import smtplib
 import datetime
 import elasticsearch
 from tabulate import tabulate
+from email.header import Header
+from email.utils import formataddr
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from elasticsearch import Elasticsearch, RequestsHttpConnection
@@ -41,7 +43,7 @@ class Sender:
                 MIMEText(self.build_report()['html'], 'html')
             ]
         )
-        msg['From'] = self.config.get('email', 'MAILBOX')
+        msg['From'] = formataddr((str(Header('iPriceBot - Burner', 'utf-8')), self.config.get('email', 'MAILBOX')))
         msg['To'] = self.config.get('email', 'TO')
         msg['Subject'] = self.build_subject()
 
@@ -50,15 +52,19 @@ class Sender:
             self.config.get('email', 'MAILBOX'),
             self.config.get('email', 'PASSWORD')
         )
-        self.smtp_server.sendmail(self.config.get('email', 'MAILBOX'), 'qqwrst@gmail.com', msg.as_string())
+        self.smtp_server.sendmail(self.config.get('email', 'MAILBOX'), self.config.get('email', 'TO'), msg.as_string())
         self.smtp_server.quit()
 
     def build_subject(self):
-        return 'Burner report - week {}'.format(datetime.datetime.now().isocalendar()[1])
+        return 'Weekly report {}'.format(datetime.datetime.now().isocalendar()[1])
 
     def build_report(self):
         res = {}
-        text = html = "{table}"
+        text = html = """
+        Table below displays weekly expenses on applications deployed in qa environment using Teamcity CI.
+        <br/>Expenses include EC2 and EBS charges.<br/>
+        <br/>{table}<br/>
+        """
         try:
             res = self.es_client.search(
                 index='burner_w{}'.format(datetime.datetime.now().isocalendar()[1]),
@@ -98,14 +104,14 @@ class Sender:
             s = s + round(hit['sort'][0], 2)
             data.append(
                 [
-                    "{:02d} User: {}".format(i, hit['_source']['user']),
-                    "Spent: {:05.2f}".format(round(hit['sort'][0], 2))
+                    "{:02d}. {:>50}".format(i, hit['_source']['user']),
+                    "Spent {:05.2f}".format(round(hit['sort'][0], 2))
                 ]
             )
         data.append(
             [
                 "Total:",
-                "{:05.2f}".format(s)
+                "<strong>${:05.2f}</strong>".format(s)
             ]
         )
         text = text.format(
