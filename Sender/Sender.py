@@ -16,6 +16,8 @@ class Sender:
     config = None
     smtp_server = None
     es_client = None
+    MAX_DOCS = 100
+    emails = []
 
     def __init__(self, config, logger):
         self.logger = logger
@@ -73,7 +75,7 @@ class Sender:
                     "_source": [
                         "user"
                     ],
-                    "size": 100,
+                    "size": self.MAX_DOCS,
                     "sort": {
                         "_script": {
                             "type": "number",
@@ -100,6 +102,7 @@ class Sender:
         i = 0
         s = 0
         for hit in res['hits']['hits']:
+            self.emails.append(hit['_source']['user'])
             i = i + 1
             s = s + round(hit['sort'][0], 2)
             data.append(

@@ -57,8 +57,8 @@ class Collector:
             region_name=config.get('boto', 'AWS_DEFAULT_REGION')
         )
 
-    def is_stack_countable(self, state):
-        if state in [
+    def is_stack_countable(self, stack):
+        if stack['StackStatus'] in [
             'CREATE_COMPLETE',
             'ROLLBACK_IN_PROGRESS',
             'ROLLBACK_COMPLETE',
@@ -69,7 +69,7 @@ class Collector:
             'UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS',
             'UPDATE_ROLLBACK_COMPLETE',
             'REVIEW_IN_PROGRESS'
-        ]:
+        ] and 'Outputs' in stack:
             return True
         return False
 
@@ -146,7 +146,7 @@ class Collector:
         ret = {}
         response = self.cloudformation_client.describe_stacks()
         for stack in response['Stacks']:
-            if not self.is_stack_countable(stack['StackStatus']):
+            if not self.is_stack_countable(stack):
                 continue
 
             resources = self.cloudformation_client.describe_stack_resources(
@@ -157,7 +157,7 @@ class Collector:
             instance_disks = self.retrieve_instance_disks(instance_id)
             if not instance_type:
                 self.logger.info(
-                    'Skipping, stack {} does not have alive instance with id {}'.format(stack['StackName'],instance_id)
+                    'Skipping, stack {} does not have alive instance with id {}'.format(stack['StackName'], instance_id)
                 )
                 continue
 
