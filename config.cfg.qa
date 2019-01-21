@@ -1,0 +1,15 @@
+[boto]
+AWS_DEFAULT_REGION = ap-southeast-1
+AWS_ACCESS_KEY_ID =
+AWS_SECRET_ACCESS_KEY =
+
+[elasticsearch]
+ES_HOST=
+ES_USERNAME=
+ES_PASSWORD=
+
+[email]
+SMTP=smtp.yandex.net
+MAILBOX=
+PASSWORD=
+TO=
