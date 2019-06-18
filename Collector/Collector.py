@@ -16,6 +16,17 @@ class Collector:
         't2.large':	0.1168,
         't2.xlarge': 0.2336,
         't2.2xlarge': 0.4672,
+        't3.nano': 0.0066,
+        't3.micro': 0.0132,
+        't3.small': 0.0264,
+        't3.medium': 0.0528,
+        't3.large':	0.1056,
+        't3.xlarge': 0.2112,
+        't3.2xlarge': 0.4224,
+        't3a.nano': 0.0059,
+        't3a.micro': 0.0236,
+        't3a.small': 0.0264,
+        't3a.medium': 0.0472,
         'm5.large': 0.12,
         'm5.xlarge': 0.24,
         'm5.2xlarge': 0.48,
@@ -58,6 +69,14 @@ class Collector:
         )
 
     def is_stack_countable(self, stack):
+        contains_ec2 = False
+        resources = self.cloudformation_client.describe_stack_resources(
+            StackName=stack['StackId']
+        )
+        for resource in resources['StackResources']:
+            print resource
+            if resource['ResourceType'] == 'AWS::EC2::Instance':
+                contains_ec2 = True
         if stack['StackStatus'] in [
             'CREATE_COMPLETE',
             'ROLLBACK_IN_PROGRESS',
@@ -69,7 +88,7 @@ class Collector:
             'UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS',
             'UPDATE_ROLLBACK_COMPLETE',
             'REVIEW_IN_PROGRESS'
-        ] and 'Outputs' in stack:
+        ] and 'Outputs' in stack and contains_ec2 is True:
             return True
         return False
 
