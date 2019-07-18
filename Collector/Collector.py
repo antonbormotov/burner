@@ -4,6 +4,7 @@
 import boto3
 import calendar
 import datetime
+from boto3 import Session
 from botocore.exceptions import ClientError
 
 
@@ -55,16 +56,23 @@ class Collector:
     def __init__(self, config, logger):
         self.logger = logger
         self.config = config
+
+        session = Session()
+        credentials = session.get_credentials()
+        current_credentials = credentials.get_frozen_credentials()
+
         self.cloudformation_client = boto3.client(
             service_name='cloudformation',
-            aws_access_key_id=config.get('boto', 'AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=config.get('boto', 'AWS_SECRET_ACCESS_KEY'),
+            aws_access_key_id=current_credentials.access_key,
+            aws_secret_access_key=current_credentials.secret_key,
+            aws_session_token=current_credentials.token,
             region_name=config.get('boto', 'AWS_DEFAULT_REGION')
         )
         self.ec2_client = boto3.client(
             service_name='ec2',
-            aws_access_key_id=config.get('boto', 'AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=config.get('boto', 'AWS_SECRET_ACCESS_KEY'),
+            aws_access_key_id=current_credentials.access_key,
+            aws_secret_access_key=current_credentials.secret_key,
+            aws_session_token=current_credentials.token,
             region_name=config.get('boto', 'AWS_DEFAULT_REGION')
         )
 
@@ -74,7 +82,6 @@ class Collector:
             StackName=stack['StackId']
         )
         for resource in resources['StackResources']:
-            print resource
             if resource['ResourceType'] == 'AWS::EC2::Instance':
                 contains_ec2 = True
         if stack['StackStatus'] in [
